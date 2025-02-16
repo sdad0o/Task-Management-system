@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class TaskController extends Controller
 {
@@ -23,6 +24,10 @@ class TaskController extends Controller
             'status' => $request->status,
         ]);
 
+        // Clear cache when a new task is added
+        Cache::forget('user_tasks_' . $request->user()->id);
+        Cache::forget('all_tasks');
+
         return response()->json([
             'status' => true,
             'message' => 'Task Added successfully',
@@ -30,18 +35,24 @@ class TaskController extends Controller
         ], 201);
     }
 
-    // Get all tasks for the authenticated user
+    // Get all tasks for the authenticated user  (with caching)
     public function index(Request $request)
     {
-        $tasks = $request->user()->tasks()->with('user:id,name')->get();
+        $userId = $request->user()->id;
+        $tasks = Cache::remember('user_tasks_' . $userId, 60, function () use ($request) {
+            return $request->user()->tasks()->with('user:id,name')->get();
+        });
 
         return response()->json($tasks);
     }
 
+    // Get all tasks (Admin) with caching
     public function getAllTasks(Request $request)
     {
         // Fetch all tasks with their associated user details
-        $tasks = Task::with('user:id,name')->where('is_deleted', 0)->get();
+        $tasks = Cache::remember('all_tasks', 60, function () {
+            return Task::with('user:id,name')->where('is_deleted', 0)->get();
+        });
 
         return response()->json([
             'status' => true,
@@ -62,6 +73,11 @@ class TaskController extends Controller
         ]);
 
         $task->update($request->all());
+
+        // Clear cache after updating a task
+        Cache::forget('user_tasks_' . $request->user()->id);
+        Cache::forget('all_tasks');
+
         return response()->json([
             'status' => true,
             'message' => 'Task Updated successfully',
@@ -74,6 +90,11 @@ class TaskController extends Controller
     {
         $task = Task::where('user_id', $request->user()->id)->findOrFail($id);
         $task->delete();
+
+        // Clear cache after deleting a task
+        Cache::forget('user_tasks_' . $request->user()->id);
+        Cache::forget('all_tasks');
+
         return response()->json(['message' => 'Task deleted successfully']);
     }
 
@@ -88,6 +109,10 @@ class TaskController extends Controller
         }
 
         $task->update(['is_deleted' => 1]);
+
+        // Clear cache after soft deleting a task
+        Cache::forget('all_tasks');
+        
         return response()->json(['message' => 'Task deleted successfully']);
     }
 }
