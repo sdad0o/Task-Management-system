@@ -3,6 +3,8 @@ import Navbar from "./Navbar/Navbar";
 import axiosInstance from "../../api/axiosInstance";
 import { Table, Button, Form, Modal, Pagination } from "react-bootstrap";
 import { ToastContainer, toast } from "react-toastify";
+import Echo from "laravel-echo";
+import Pusher from "pusher-js";
 import "react-toastify/dist/ReactToastify.css";
 
 function TaskManagement() {
@@ -19,9 +21,29 @@ function TaskManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tasksPerPage] = useState(5);
 
-  // Fetch tasks on component load
+  
+ // Initialize Laravel Echo for real-time events
   useEffect(() => {
     fetchTasks();
+
+    window.Pusher = Pusher;
+    window.Echo = new Echo({
+      broadcaster: "pusher",
+      key: process.env.REACT_APP_PUSHER_KEY,
+      cluster: process.env.REACT_APP_PUSHER_CLUSTER,
+      forceTLS: true,
+    });
+
+    // Listen for TaskUpdated event
+    window.Echo.channel("tasks")
+      .listen(".TaskUpdated", (event) => {
+        toast.info(`Task updated: ${event.task.title}`);
+        fetchTasks(); // Refresh the tasks when an update occurs
+      });
+
+    return () => {
+      window.Echo.disconnect();
+    };
   }, []);
 
   const fetchTasks = async () => {
@@ -122,7 +144,6 @@ function TaskManagement() {
               <th>Title</th>
               <th>Description</th>
               <th>Status</th>
-              <th>Due Date</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -132,7 +153,6 @@ function TaskManagement() {
                 <td>{task.title}</td>
                 <td>{task.description}</td>
                 <td>{task.status}</td>
-                <td>{task.due_date}</td>
                 <td>
                   <Button
                     variant="warning"
