@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\TaskUpdated;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -78,6 +79,9 @@ class TaskController extends Controller
         Cache::forget('user_tasks_' . $request->user()->id);
         Cache::forget('all_tasks');
 
+        // Dispatch Event When a Task is Updated
+        broadcast(new TaskUpdated($task))->toOthers();
+
         return response()->json([
             'status' => true,
             'message' => 'Task Updated successfully',
@@ -112,7 +116,7 @@ class TaskController extends Controller
 
         // Clear cache after soft deleting a task
         Cache::forget('all_tasks');
-        
+
         return response()->json(['message' => 'Task deleted successfully']);
     }
 }
