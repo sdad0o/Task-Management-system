@@ -107,7 +107,7 @@ npm run build  # Production build
 php artisan serve
 ```
 
-**Start Frontend Dev Server (if separate):**  
+**Start Frontend Dev Server:**  
 ```bash
 npm run dev
 ```
